@@ -1,0 +1,76 @@
+@Library('Shared') _
+pipeline {
+    agent any
+    
+    parameters {
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: '', description: 'Frontend Docker tag from CI job')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: '', description: 'Backend Docker tag from CI job')
+    }
+
+    stages {
+        stage("Workspace cleanup") {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage("Git: Code Checkout") {
+            steps {
+                script {
+                    code_checkout("https://github.com/Shrinidhi972004/image-video-gallery.git", "main")
+                }
+            }
+        }
+
+        stage("Verify: Docker Image Tags") {
+            steps {
+                echo "FRONTEND_DOCKER_TAG: ${params.FRONTEND_DOCKER_TAG}"
+                echo "BACKEND_DOCKER_TAG: ${params.BACKEND_DOCKER_TAG}"
+            }
+        }
+
+        stage("Update: Kubernetes Manifests") {
+            steps {
+                dir('k8s') {
+                    sh """
+                        sed -i -E "s|(image: .*/image-video-backend:).*|\\1${params.BACKEND_DOCKER_TAG}|g" backend-deployment.yaml
+                        sed -i -E "s|(image: .*/image-video-frontend:).*|\\1${params.FRONTEND_DOCKER_TAG}|g" frontend-deployment.yaml
+                    """
+                }
+            }
+        }
+
+        stage("Git: Commit and Push Changes") {
+            steps {
+                withCredentials([gitUsernamePassword(credentialsId: 'Github-cred', gitToolName: 'Default')]) {
+                    sh '''
+                        git config --global user.email "shrinidhiupadhyaya00@gmail.com"
+                        git config --global user.name "Shrinidhi972004"
+
+                        git status
+                        git add k8s/
+                        git commit -m "Update k8s manifests with new image tags: FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}" || echo "No changes to commit"
+                        git push https://github.com/Shrinidhi972004/image-video-gallery.git main
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            emailext(
+                subject: "✅ CD Success: Image-Video-Gallery Deployed",
+                body: "Deployment triggered successfully with FRONTEND=${params.FRONTEND_DOCKER_TAG}, BACKEND=${params.BACKEND_DOCKER_TAG}",
+                to: "shrinidhiupadhyaya00@gmail.com"
+            )
+        }
+        failure {
+            emailext(
+                subject: "❌ CD Failed: Image-Video-Gallery",
+                body: "Deployment failed for FRONTEND=${params.FRONTEND_DOCKER_TAG}, BACKEND=${params.BACKEND_DOCKER_TAG}",
+                to: "shrinidhiupadhyaya00@gmail.com"
+            )
+        }
+    }
+}
