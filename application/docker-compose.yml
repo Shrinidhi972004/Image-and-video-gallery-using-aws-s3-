@@ -18,10 +18,9 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "9000:80"   # frontend served by nginx, exposed on host port 9000
-    environment:
-      NODE_ENV: production
-      VITE_API_PATH: "http://localhost:5002"
+      - "9000:80"   # exposed on host port 9000
+    env_file:
+      - ./frontend/.env
     depends_on:
       - backend
     restart: always
