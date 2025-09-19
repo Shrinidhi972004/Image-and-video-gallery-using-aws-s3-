@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "5002:5002"
+    env_file:
+      - ./backend/.env
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "9000:80"   # frontend served by nginx, exposed on host port 9000
+    environment:
+      NODE_ENV: production
+      VITE_API_PATH: "http://localhost:5002"
+    depends_on:
+      - backend
+    restart: always
