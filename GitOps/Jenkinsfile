@@ -1,4 +1,5 @@
 @Library('Shared') _
+
 pipeline {
     agent any
 
@@ -49,7 +50,7 @@ pipeline {
             }
         }
 
-        stage("Inject Secrets into Kubernetes") {
+        stage("Apply: Backend Secrets") {
             steps {
                 withCredentials([
                     string(credentialsId: 'mongo-uri', variable: 'MONGO_URI'),
@@ -70,12 +71,22 @@ pipeline {
                 }
             }
         }
+
+        stage("Apply: Frontend ConfigMap") {
+            steps {
+                sh """
+                kubectl create configmap frontend-config \\
+                  --from-literal=REACT_APP_API_URL=http://gallery.shrinidhi.space/api \\
+                  -n image-video-gallery --dry-run=client -o yaml | kubectl apply -f -
+                """
+            }
+        }
     }
 
     post {
         success {
             emailext(
-                subject: "✅ CD Success: Image-Video-Gallery Deployed",
+                subject: "✅ GitOps CD Success: Image-Video-Gallery Deployed",
                 body: """
                 Deployment successful 🎉
 
@@ -87,7 +98,7 @@ pipeline {
         }
         failure {
             emailext(
-                subject: "❌ CD Failed: Image-Video-Gallery",
+                subject: "❌ GitOps CD Failed: Image-Video-Gallery",
                 body: """
                 Deployment failed ⚠️
 
