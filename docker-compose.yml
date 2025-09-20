@@ -3,24 +3,24 @@ version: "3.9"
 services:
   backend:
     build:
-      context: ./backend
+      context: ./application/backend
       dockerfile: Dockerfile
     container_name: backend
     ports:
       - "5002:5002"
     env_file:
-      - ./backend/.env
+      - ./application/backend/.env
     restart: always
 
   frontend:
     build:
-      context: ./frontend
+      context: ./application/frontend
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "9000:80"   # exposed on host port 9000
+      - "9000:80"  
     env_file:
-      - ./frontend/.env
+      - ./application/frontend/.env
     depends_on:
       - backend
     restart: always

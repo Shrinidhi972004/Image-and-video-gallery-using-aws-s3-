@@ -22,7 +22,7 @@ pipeline {
         stage("Git: Code Checkout") {
             steps {
                 script {
-                    code_checkout("https://github.com/shrinidhi972004/image-video-gallery.git", "main")
+                    code_checkout("https://github.com/shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "main")
                 }
             }
         }

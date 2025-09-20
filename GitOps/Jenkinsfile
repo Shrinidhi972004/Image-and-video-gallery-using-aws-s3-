@@ -17,7 +17,7 @@ pipeline {
         stage("Git: Code Checkout") {
             steps {
                 script {
-                    code_checkout("https://github.com/Shrinidhi972004/image-video-gallery.git", "main")
+                    code_checkout("https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "main")
                 }
             }
         }
@@ -50,7 +50,7 @@ pipeline {
                         git status
                         git add k8s/
                         git commit -m "Update k8s manifests with new image tags: FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}" || echo "No changes to commit"
-                        git push https://github.com/Shrinidhi972004/image-video-gallery.git main
+                        git push https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git main
                     '''
                 }
             }
