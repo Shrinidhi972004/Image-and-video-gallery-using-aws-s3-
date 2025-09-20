@@ -1,15 +1,15 @@
 @Library('Shared') _
-
 pipeline {
     agent any
 
     environment {
         SONAR_HOME = tool "Sonar"
+        BUILD_TAG = "v1.0.${env.BUILD_NUMBER}"
     }
 
     parameters {
-        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: "v1.0.${env.BUILD_NUMBER}", description: 'Docker tag for frontend')
-        string(name: 'BACKEND_DOCKER_TAG', defaultValue: "v1.0.${env.BUILD_NUMBER}", description: 'Docker tag for backend')
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: "", description: 'Docker tag for frontend')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: "", description: 'Docker tag for backend')
     }
 
     stages {
@@ -22,7 +22,7 @@ pipeline {
         stage("Git: Code Checkout") {
             steps {
                 script {
-                    code_checkout("https://github.com/shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "main")
+                    code_checkout("https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "master")
                 }
             }
         }
@@ -35,7 +35,7 @@ pipeline {
 
         stage("OWASP: Dependency Check") {
             steps {
-                owasp_dependency("image-video-gallery", "./application/backend", "owasp-report")
+                owasp_dependency("image-video-gallery", "application/backend", "owasp-report")
             }
         }
 
@@ -51,34 +51,25 @@ pipeline {
             }
         }
 
-        stage("Update Environment Variables") {
-            parallel {
-                stage("Backend Env") {
-                    steps {
-                        sh "bash automation/update-backend-env.sh"
-                    }
-                }
-                stage("Frontend Env") {
-                    steps {
-                        sh "bash automation/update-frontend-env.sh"
-                    }
-                }
-            }
-        }
-
         stage("Docker: Build Images") {
             parallel {
                 stage("Backend Build") {
                     steps {
                         dir("application/backend") {
-                            docker_build("image-video-backend", "${params.BACKEND_DOCKER_TAG}", "shrinidhiupadhyaya")
+                            script {
+                                def backendTag = params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG
+                                docker_build("image-video-backend", backendTag, "shrinidhiupadhyaya")
+                            }
                         }
                     }
                 }
                 stage("Frontend Build") {
                     steps {
                         dir("application/frontend") {
-                            docker_build("image-video-frontend", "${params.FRONTEND_DOCKER_TAG}", "shrinidhiupadhyaya")
+                            script {
+                                def frontendTag = params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG
+                                docker_build("image-video-frontend", frontendTag, "shrinidhiupadhyaya")
+                            }
                         }
                     }
                 }
@@ -88,8 +79,10 @@ pipeline {
         stage("Docker: Push Images") {
             steps {
                 script {
-                    docker_push("image-video-backend", "${params.BACKEND_DOCKER_TAG}", "shrinidhiupadhyaya")
-                    docker_push("image-video-frontend", "${params.FRONTEND_DOCKER_TAG}", "shrinidhiupadhyaya")
+                    def backendTag = params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG
+                    def frontendTag = params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG
+                    docker_push("image-video-backend", backendTag, "shrinidhiupadhyaya")
+                    docker_push("image-video-frontend", frontendTag, "shrinidhiupadhyaya")
                 }
             }
         }
@@ -99,8 +92,8 @@ pipeline {
         success {
             archiveArtifacts artifacts: '**/owasp-report/*.xml', followSymlinks: false
             build job: "ImageVideoGallery-CD", parameters: [
-                string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG}"),
-                string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG}")
+                string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG}"),
+                string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG}")
             ]
         }
     }

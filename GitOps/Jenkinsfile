@@ -1,7 +1,7 @@
 @Library('Shared') _
 pipeline {
     agent any
-    
+
     parameters {
         string(name: 'FRONTEND_DOCKER_TAG', defaultValue: '', description: 'Frontend Docker tag from CI job')
         string(name: 'BACKEND_DOCKER_TAG', defaultValue: '', description: 'Backend Docker tag from CI job')
@@ -14,18 +14,11 @@ pipeline {
             }
         }
 
-        stage("Git: Code Checkout") {
+        stage("Git: Checkout GitOps Repo") {
             steps {
                 script {
-                    code_checkout("https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "main")
+                    code_checkout("https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "master")
                 }
-            }
-        }
-
-        stage("Verify: Docker Image Tags") {
-            steps {
-                echo "FRONTEND_DOCKER_TAG: ${params.FRONTEND_DOCKER_TAG}"
-                echo "BACKEND_DOCKER_TAG: ${params.BACKEND_DOCKER_TAG}"
             }
         }
 
@@ -33,8 +26,8 @@ pipeline {
             steps {
                 dir('k8s') {
                     sh """
-                        sed -i -E "s|(image: .*/image-video-backend:).*|\\1${params.BACKEND_DOCKER_TAG}|g" backend-deployment.yaml
-                        sed -i -E "s|(image: .*/image-video-frontend:).*|\\1${params.FRONTEND_DOCKER_TAG}|g" frontend-deployment.yaml
+                        sed -i -E "s|(image: .*/image-video-backend:).*|image: shrinidhi972004/image-video-backend:${BACKEND_DOCKER_TAG}|g" backend-deployment.yaml
+                        sed -i -E "s|(image: .*/image-video-frontend:).*|image: shrinidhi972004/image-video-frontend:${FRONTEND_DOCKER_TAG}|g" frontend-deployment.yaml
                     """
                 }
             }
@@ -49,9 +42,31 @@ pipeline {
 
                         git status
                         git add k8s/
-                        git commit -m "Update k8s manifests with new image tags: FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}" || echo "No changes to commit"
-                        git push https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git main
+                        git commit -m "Update k8s manifests with FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}" || echo "No changes to commit"
+                        git push https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git master
                     '''
+                }
+            }
+        }
+
+        stage("Inject Secrets into Kubernetes") {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'mongo-uri', variable: 'MONGO_URI'),
+                    string(credentialsId: 'jwt-secret', variable: 'JWT_SECRET'),
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh """
+                    kubectl create secret generic backend-secrets \\
+                        --from-literal=MONGO_URI=$MONGO_URI \\
+                        --from-literal=JWT_SECRET=$JWT_SECRET \\
+                        --from-literal=AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \\
+                        --from-literal=AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \\
+                        --from-literal=AWS_REGION=ap-south-1 \\
+                        --from-literal=AWS_BUCKET_NAME=image-video-gallery-part69 \\
+                        -n image-video-gallery --dry-run=client -o yaml | kubectl apply -f -
+                    """
                 }
             }
         }
@@ -61,14 +76,24 @@ pipeline {
         success {
             emailext(
                 subject: "✅ CD Success: Image-Video-Gallery Deployed",
-                body: "Deployment triggered successfully with FRONTEND=${params.FRONTEND_DOCKER_TAG}, BACKEND=${params.BACKEND_DOCKER_TAG}",
+                body: """
+                Deployment successful 🎉
+
+                Frontend Tag: ${params.FRONTEND_DOCKER_TAG}
+                Backend Tag: ${params.BACKEND_DOCKER_TAG}
+                """,
                 to: "shrinidhiupadhyaya00@gmail.com"
             )
         }
         failure {
             emailext(
                 subject: "❌ CD Failed: Image-Video-Gallery",
-                body: "Deployment failed for FRONTEND=${params.FRONTEND_DOCKER_TAG}, BACKEND=${params.BACKEND_DOCKER_TAG}",
+                body: """
+                Deployment failed ⚠️
+
+                Frontend Tag: ${params.FRONTEND_DOCKER_TAG}
+                Backend Tag: ${params.BACKEND_DOCKER_TAG}
+                """,
                 to: "shrinidhiupadhyaya00@gmail.com"
             )
         }

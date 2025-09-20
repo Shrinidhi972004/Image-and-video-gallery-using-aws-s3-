@@ -6,25 +6,23 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 RUN npm install
 
-# Copy source and .env, then build React app
+# Copy source and build React app
 COPY . .
-COPY .env .env
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN npm run build
 
 # ---------- Production stage ----------
 FROM nginx:alpine
-WORKDIR /usr/share/nginx/html
 
-# Remove default nginx content
-RUN rm -rf ./*
+# Remove default nginx files
+RUN rm -rf /usr/share/nginx/html/*
 
 # Copy React build output
-COPY --from=builder /usr/src/app/build ./
+COPY --from=builder /usr/src/app/build /usr/share/nginx/html
 
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose container port (still 80 inside)
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]

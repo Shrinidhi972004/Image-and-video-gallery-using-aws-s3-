@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: image-video-gallery
+data:
+  REACT_APP_API_URL: "http://gallery.shrinidhi.space/api"
