@@ -39,11 +39,27 @@ pipeline {
         stage('Git: Commit and Push Changes') {
             steps {
                 script {
-                    gitCommitPush("Update k8s manifests with FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}", "master")
+                    gitCommitPush("Update k8s manifests with FE=${params.FRONTEND_DOCKER_TAG}, BE=${params.BACKEND_DOCKER_TAG}", "master")
                 }
             }
         }
 
+        stage("EKS: Configure Kubeconfig") {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'aws-access-key', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh """
+                    aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                    aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                    aws configure set default.region ap-south-1
+
+                    aws eks update-kubeconfig --region ap-south-1 --name gallery
+                    """
+                }
+            }
+        }
 
         stage("Apply: Backend Secrets") {
             steps {
