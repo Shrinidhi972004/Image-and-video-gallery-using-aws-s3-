@@ -1,5 +1,4 @@
 @Library('Shared') _
-
 pipeline {
     agent any
 
@@ -76,7 +75,7 @@ pipeline {
             steps {
                 sh """
                 kubectl create configmap frontend-config \\
-                  --from-literal=REACT_APP_API_URL=http://gallery.shrinidhi.space/api \\
+                  --from-literal=REACT_APP_API_URL=http://15.206.174.97:30502 \\
                   -n image-video-gallery --dry-run=client -o yaml | kubectl apply -f -
                 """
             }
@@ -88,7 +87,7 @@ pipeline {
             emailext(
                 subject: "✅ GitOps CD Success: Image-Video-Gallery Deployed",
                 body: """
-                Deployment successful 🎉
+                Deployment successful
 
                 Frontend Tag: ${params.FRONTEND_DOCKER_TAG}
                 Backend Tag: ${params.BACKEND_DOCKER_TAG}
@@ -100,7 +99,7 @@ pipeline {
             emailext(
                 subject: "❌ GitOps CD Failed: Image-Video-Gallery",
                 body: """
-                Deployment failed ⚠️
+                Deployment failed
 
                 Frontend Tag: ${params.FRONTEND_DOCKER_TAG}
                 Backend Tag: ${params.BACKEND_DOCKER_TAG}

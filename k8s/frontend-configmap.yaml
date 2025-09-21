@@ -4,4 +4,5 @@ metadata:
   name: frontend-config
   namespace: image-video-gallery
 data:
-  REACT_APP_API_URL: "http://gallery.shrinidhi.space/api"
+  # Since you’re exposing backend as NodePort (30502), point here
+  REACT_APP_API_URL: "http://15.206.174.97:30502"
