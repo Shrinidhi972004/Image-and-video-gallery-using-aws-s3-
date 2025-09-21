@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: shrinidhi972004/image-video-frontend
+          image: shrinidhiupadhyaya/image-video-frontend:v1.0.35
           ports:
             - containerPort: 80
           envFrom:
