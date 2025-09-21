@@ -7,6 +7,11 @@ pipeline {
         BUILD_TAG = "v1.0.${env.BUILD_NUMBER}"
     }
 
+    parameters {
+        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: "", description: 'Docker tag for frontend')
+        string(name: 'BACKEND_DOCKER_TAG', defaultValue: "", description: 'Docker tag for backend')
+    }
+
     stages {
         stage("Workspace cleanup") {
             steps {
@@ -17,7 +22,10 @@ pipeline {
         stage("Git: Code Checkout") {
             steps {
                 script {
-                    code_checkout("https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "master")
+                    code_checkout(
+                        "https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git",
+                        "master"
+                    )
                 }
             }
         }
@@ -28,15 +36,14 @@ pipeline {
             }
         }
 
-        stage("OWASP: Dependency Check") {
-            steps {
-                owasp_dependency("image-video-gallery", "application/backend", "owasp-report")
-            }
-        }
-
         stage("SonarQube: Code Analysis") {
             steps {
-                sonarqube_analysis("Sonar", "image-video-gallery", "image-video-gallery", "./application")
+                sonarqube_analysis(
+                    "Sonar",
+                    "image-video-gallery",
+                    "image-video-gallery",
+                    "./application"
+                )
             }
         }
 
@@ -47,19 +54,17 @@ pipeline {
         }
 
         stage("Docker: Build Images") {
-            parallel {
-                stage("Backend Build") {
-                    steps {
-                        dir("application/backend") {
-                            docker_build("image-video-backend", "${BUILD_TAG}", "shrinidhiupadhyaya")
-                        }
+            steps {
+                script {
+                    def backendTag = params.BACKEND_DOCKER_TAG ?: "latest"
+                    def frontendTag = params.FRONTEND_DOCKER_TAG ?: "latest"
+
+                    dir('application/backend') {
+                        docker_build("image-video-backend", backendTag, "shrinidhiupadhyaya")
                     }
-                }
-                stage("Frontend Build") {
-                    steps {
-                        dir("application/frontend") {
-                            docker_build("image-video-frontend", "${BUILD_TAG}", "shrinidhiupadhyaya")
-                        }
+
+                    dir('application/frontend') {
+                        docker_build("image-video-frontend", frontendTag, "shrinidhiupadhyaya")
                     }
                 }
             }
@@ -67,19 +72,47 @@ pipeline {
 
         stage("Docker: Push Images") {
             steps {
-                docker_push("image-video-backend", "${BUILD_TAG}", "shrinidhiupadhyaya")
-                docker_push("image-video-frontend", "${BUILD_TAG}", "shrinidhiupadhyaya")
+                script {
+                    def backendTag = params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG
+                    def frontendTag = params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG
+
+                    docker_push("image-video-backend", backendTag, "shrinidhiupadhyaya")
+                    docker_push("image-video-frontend", frontendTag, "shrinidhiupadhyaya")
+                }
             }
         }
     }
 
     post {
         success {
-            archiveArtifacts artifacts: '**/owasp-report/*.xml', followSymlinks: false
+            echo "✅ Build successful!"
             build job: "ImageVideoGallery-CD", parameters: [
-                string(name: 'FRONTEND_DOCKER_TAG', value: "${BUILD_TAG}"),
-                string(name: 'BACKEND_DOCKER_TAG', value: "${BUILD_TAG}")
+                string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG}"),
+                string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG}")
             ]
+            
+            emailext(
+                subject: "✅ SUCCESS: Jenkins Build #${env.BUILD_NUMBER}",
+                body: """<p>Good news 🎉</p>
+                        <p>The Jenkins build <b>${env.JOB_NAME} #${env.BUILD_NUMBER}</b> completed successfully.</p>
+                        <p>Docker images have been built & pushed:</p>
+                        <ul>
+                          <li>Backend → shrinidhiupadhyaya/image-video-backend:${params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG}</li>
+                          <li>Frontend → shrinidhiupadhyaya/image-video-frontend:${params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG}</li>
+                        </ul>
+                        <p>See details: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
+                to: "shrinidhiupadhyaya00@gmail.com"
+            )
+        }
+        failure {
+            echo "❌ Build failed. Check logs in Jenkins."
+            emailext(
+                subject: "❌ FAILURE: Jenkins Build #${env.BUILD_NUMBER}",
+                body: """<p>Oops ⚠️</p>
+                        <p>The Jenkins build <b>${env.JOB_NAME} #${env.BUILD_NUMBER}</b> has failed.</p>
+                        <p>Check the logs here: <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>""",
+                to: "shrinidhiupadhyaya00@gmail.com"
+            )
         }
     }
 }

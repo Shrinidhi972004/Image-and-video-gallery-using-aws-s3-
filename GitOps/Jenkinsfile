@@ -17,7 +17,10 @@ pipeline {
         stage("Git: Checkout GitOps Repo") {
             steps {
                 script {
-                    code_checkout("https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git", "master")
+                    code_checkout(
+                        "https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git",
+                        "master"
+                    )
                 }
             }
         }
@@ -26,28 +29,21 @@ pipeline {
             steps {
                 dir('k8s') {
                     sh """
-                        sed -i -E "s|(image: .*/image-video-backend:).*|image: shrinidhi972004/image-video-backend:${BACKEND_DOCKER_TAG}|g" backend-deployment.yaml
-                        sed -i -E "s|(image: .*/image-video-frontend:).*|image: shrinidhi972004/image-video-frontend:${FRONTEND_DOCKER_TAG}|g" frontend-deployment.yaml
+                        sed -i -E "s|(image: .*/image-video-backend:).*|image: shrinidhi972004/image-video-backend:${params.BACKEND_DOCKER_TAG}|g" backend-deployment.yaml
+                        sed -i -E "s|(image: .*/image-video-frontend:).*|image: shrinidhi972004/image-video-frontend:${params.FRONTEND_DOCKER_TAG}|g" frontend-deployment.yaml
                     """
                 }
             }
         }
 
-        stage("Git: Commit and Push Changes") {
+        stage('Git: Commit and Push Changes') {
             steps {
-                withCredentials([gitUsernamePassword(credentialsId: 'Github-cred', gitToolName: 'Default')]) {
-                    sh '''
-                        git config --global user.email "shrinidhiupadhyaya00@gmail.com"
-                        git config --global user.name "Shrinidhi972004"
-
-                        git status
-                        git add k8s/
-                        git commit -m "Update k8s manifests with FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}" || echo "No changes to commit"
-                        git push https://github.com/Shrinidhi972004/Image-and-video-gallery-using-aws-s3-.git master
-                    '''
+                script {
+                    gitCommitPush("Update k8s manifests with FE=${FRONTEND_DOCKER_TAG}, BE=${BACKEND_DOCKER_TAG}", "master")
                 }
             }
         }
+
 
         stage("Apply: Backend Secrets") {
             steps {
@@ -58,13 +54,13 @@ pipeline {
                     string(credentialsId: 'aws-secret-key', variable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh """
-                    kubectl create secret generic backend-secrets \\
-                        --from-literal=MONGO_URI=$MONGO_URI \\
-                        --from-literal=JWT_SECRET=$JWT_SECRET \\
-                        --from-literal=AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \\
-                        --from-literal=AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \\
-                        --from-literal=AWS_REGION=ap-south-1 \\
-                        --from-literal=AWS_BUCKET_NAME=image-video-gallery-part69 \\
+                    kubectl create secret generic backend-secrets \
+                        --from-literal=MONGO_URI=$MONGO_URI \
+                        --from-literal=JWT_SECRET=$JWT_SECRET \
+                        --from-literal=AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+                        --from-literal=AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+                        --from-literal=AWS_REGION=ap-south-1 \
+                        --from-literal=AWS_BUCKET_NAME=image-video-gallery-part69 \
                         -n image-video-gallery --dry-run=client -o yaml | kubectl apply -f -
                     """
                 }
@@ -74,8 +70,8 @@ pipeline {
         stage("Apply: Frontend ConfigMap") {
             steps {
                 sh """
-                kubectl create configmap frontend-config \\
-                  --from-literal=REACT_APP_API_URL=http://15.206.174.97:30502 \\
+                kubectl create configmap frontend-config \
+                  --from-literal=REACT_APP_API_URL=http://15.206.174.97:30502 \
                   -n image-video-gallery --dry-run=client -o yaml | kubectl apply -f -
                 """
             }
