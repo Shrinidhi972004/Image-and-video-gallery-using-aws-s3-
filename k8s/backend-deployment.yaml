@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: shrinidhi972004/image-video-backend:latest
+          image: shrinidhi972004/image-video-backend
           ports:
             - containerPort: 5002
           envFrom:
