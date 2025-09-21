@@ -7,11 +7,6 @@ pipeline {
         BUILD_TAG = "v1.0.${env.BUILD_NUMBER}"
     }
 
-    parameters {
-        string(name: 'FRONTEND_DOCKER_TAG', defaultValue: "", description: 'Docker tag for frontend')
-        string(name: 'BACKEND_DOCKER_TAG', defaultValue: "", description: 'Docker tag for backend')
-    }
-
     stages {
         stage("Workspace cleanup") {
             steps {
@@ -56,20 +51,14 @@ pipeline {
                 stage("Backend Build") {
                     steps {
                         dir("application/backend") {
-                            script {
-                                def backendTag = params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG
-                                docker_build("image-video-backend", backendTag, "shrinidhiupadhyaya")
-                            }
+                            docker_build("image-video-backend", "${BUILD_TAG}", "shrinidhiupadhyaya")
                         }
                     }
                 }
                 stage("Frontend Build") {
                     steps {
                         dir("application/frontend") {
-                            script {
-                                def frontendTag = params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG
-                                docker_build("image-video-frontend", frontendTag, "shrinidhiupadhyaya")
-                            }
+                            docker_build("image-video-frontend", "${BUILD_TAG}", "shrinidhiupadhyaya")
                         }
                     }
                 }
@@ -78,12 +67,8 @@ pipeline {
 
         stage("Docker: Push Images") {
             steps {
-                script {
-                    def backendTag = params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG
-                    def frontendTag = params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG
-                    docker_push("image-video-backend", backendTag, "shrinidhiupadhyaya")
-                    docker_push("image-video-frontend", frontendTag, "shrinidhiupadhyaya")
-                }
+                docker_push("image-video-backend", "${BUILD_TAG}", "shrinidhiupadhyaya")
+                docker_push("image-video-frontend", "${BUILD_TAG}", "shrinidhiupadhyaya")
             }
         }
     }
@@ -92,8 +77,8 @@ pipeline {
         success {
             archiveArtifacts artifacts: '**/owasp-report/*.xml', followSymlinks: false
             build job: "ImageVideoGallery-CD", parameters: [
-                string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG ?: env.BUILD_TAG}"),
-                string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG ?: env.BUILD_TAG}")
+                string(name: 'FRONTEND_DOCKER_TAG', value: "${BUILD_TAG}"),
+                string(name: 'BACKEND_DOCKER_TAG', value: "${BUILD_TAG}")
             ]
         }
     }
